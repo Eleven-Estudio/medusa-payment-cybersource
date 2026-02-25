@@ -1,0 +1,7 @@
+node_modules/
+dist/
+tsconfig.tsbuildinfo
+*.log
+.env
+.yalc
+yalc.lock
