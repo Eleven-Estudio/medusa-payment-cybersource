@@ -1,6 +1,6 @@
 {
   "name": "medusa-payment-cybersource",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "CyberSource payment provider for Medusa.js v2 with Flex Microform (PCI DSS SAQ-A)",
   "author": {
     "name": "Geovanny Gil",
