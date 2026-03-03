@@ -93,13 +93,3 @@ Para modelos de negocio con cobros periódicos.
 **Qué hacer:**
 - CyberSource soporta Dynamic Currency Conversion (DCC)
 - Agregar `foreignCurrency` y `foreignAmount` en el request si aplica
-
----
-
-## Deuda técnica
-
-- [ ] Tests unitarios para `CybersourceClient` y `CybersourcePaymentProvider`
-- [ ] Tests de integración contra el sandbox de CyberSource
-- [ ] Publicar en npm como paquete público (`npm publish`)
-- [ ] README con guía de instalación y configuración
-- [ ] CI/CD para build y publish automático
