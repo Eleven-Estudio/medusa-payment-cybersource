@@ -11,6 +11,9 @@
   "keywords": [
     "medusa",
     "medusa-plugin",
+    "medusa-plugin-integration",
+    "medusa-plugin-payment",
+    "medusa-v2",
     "medusajs",
     "payment",
     "cybersource",
