@@ -16,12 +16,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/medusa-payment-cybersource.git"
+    "url": "https://github.com/Eleven-Estudio/medusa-payment-cybersource"
   },
   "bugs": {
-    "url": "https://github.com/your-org/medusa-payment-cybersource/issues"
+    "url": "https://github.com/Eleven-Estudio/medusa-payment-cybersource/issues"
   },
-  "homepage": "https://github.com/your-org/medusa-payment-cybersource#readme",
+  "homepage": "https://github.com/Eleven-Estudio/medusa-payment-cybersource#readme",
   "engines": {
     "node": ">=18.0.0"
   },
