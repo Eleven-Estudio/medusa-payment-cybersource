@@ -1,26 +1,46 @@
 {
   "name": "medusa-payment-cybersource",
   "version": "1.0.0",
-  "description": "CyberSource payment provider for Medusa.js v2",
+  "description": "CyberSource payment provider for Medusa.js v2 with Flex Microform (PCI DSS SAQ-A)",
   "author": "Eleven",
   "license": "MIT",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "keywords": [
+    "medusa",
+    "medusa-plugin",
+    "medusajs",
+    "payment",
+    "cybersource",
+    "flex-microform",
+    "pci-dss",
+    "ecommerce"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/medusa-payment-cybersource.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/medusa-payment-cybersource/issues"
+  },
+  "homepage": "https://github.com/your-org/medusa-payment-cybersource#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "main": "./.medusa/server/src/index.js",
+  "types": "./.medusa/server/src/index.d.ts",
   "exports": {
     ".": {
-      "require": "./dist/index.js",
-      "import": "./dist/index.mjs",
-      "types": "./dist/index.d.ts"
-    }
+      "require": "./.medusa/server/src/index.js",
+      "types": "./.medusa/server/src/index.d.ts"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    ".medusa/server"
   ],
   "scripts": {
-    "build": "tsc --build",
-    "dev": "tsc --build --watch",
-    "clean": "rm -rf dist"
+    "build": "npm run clean && tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf .medusa dist tsconfig.tsbuildinfo"
   },
   "peerDependencies": {
     "@medusajs/framework": ">=2.0.0"

@@ -186,16 +186,27 @@ class CybersourcePaymentProvider extends AbstractPaymentProvider<CybersourceOpti
 
     // If cs_payment_id is present, the pre-auth custom route ran successfully
     if (data?.cs_payment_id && data?.cs_status) {
-      const medusaStatus =
+      let medusaStatus =
         CS_STATUS_MAP[data.cs_status] ?? ("error" as PaymentSessionStatus)
+
+      // In sale/auto-capture mode, CyberSource returns "AUTHORIZED" (not "CAPTURED")
+      // because the capture is batched for settlement. Return "captured" to Medusa so
+      // the payment module automatically creates a Capture record (same pattern as Braintree).
+      if (this.captureMode && medusaStatus === "authorized") {
+        medusaStatus = "captured" as PaymentSessionStatus
+      }
 
       return {
         status: medusaStatus,
         data: {
           cs_payment_id: data.cs_payment_id,
           cs_status: data.cs_status,
+          cs_capture_id: data.cs_capture_id,
+          cs_reconciliation_id: data.cs_reconciliation_id,
           amount: data.amount,
           currency: data.currency,
+          card_last_four: data.card_last_four,
+          card_type: data.card_type,
         } as unknown as Record<string, unknown>,
       }
     }
@@ -231,9 +242,11 @@ class CybersourcePaymentProvider extends AbstractPaymentProvider<CybersourceOpti
       )
     }
 
-    // If already captured (auto-capture mode was enabled), return as-is
-    if (data.cs_status === "CAPTURED" && data.cs_capture_id) {
-      console.log("[CyberSource] capturePayment: already captured, returning as-is")
+    // If cs_capture_id is already set (auto-capture/sale mode), skip capturing at CyberSource
+    // again. The payment module handles the Capture record internally when authorizePayment
+    // returns "captured".
+    if (data.cs_capture_id) {
+      console.log("[CyberSource] capturePayment: cs_capture_id already set, returning as-is")
       return { data: input.data }
     }
 

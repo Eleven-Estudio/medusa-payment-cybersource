@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.medusa/
 tsconfig.tsbuildinfo
 *.log
 .env
