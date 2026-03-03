@@ -1,0 +1,12 @@
+src/
+node_modules/
+.git/
+.gitignore
+tsconfig.json
+tsconfig.tsbuildinfo
+ROADMAP.md
+package-lock.json
+*.log
+.env
+.yalc
+yalc.lock
