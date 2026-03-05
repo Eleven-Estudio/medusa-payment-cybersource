@@ -39,26 +39,42 @@
       "require": "./.medusa/server/src/index.js",
       "types": "./.medusa/server/src/index.d.ts"
     },
+    "./admin": {
+      "import": "./.medusa/server/src/admin/index.mjs",
+      "default": "./.medusa/server/src/admin/index.mjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     ".medusa/server"
   ],
   "scripts": {
-    "build": "npm run clean && tsc",
+    "build": "npm run clean && tsc && vite build --config vite.admin.config.mts",
     "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
     "clean": "rm -rf .medusa dist tsconfig.tsbuildinfo"
   },
   "peerDependencies": {
     "@medusajs/framework": ">=2.0.0"
   },
   "dependencies": {
-    "cybersource-rest-client": "^0.0.61",
-    "axios": "^1.7.0"
+    "axios": "^1.7.0",
+    "cybersource-rest-client": "^0.0.61"
   },
   "devDependencies": {
+    "@medusajs/admin-sdk": "^2.13.1",
+    "@medusajs/admin-vite-plugin": "^2.13.3",
+    "@medusajs/cli": "^2.13.1",
     "@medusajs/framework": "2.10.3",
+    "@medusajs/icons": "^2.13.1",
+    "@medusajs/ui": "^4.1.1",
     "@types/node": "^20.0.0",
-    "typescript": "^5.9.3"
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^5.1.4",
+    "react": "^18.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
   }
 }

@@ -5,16 +5,20 @@ CyberSource payment plugin for [Medusa.js v2](https://medusajs.com/), built on *
 ## Features
 
 - **Flex Microform v2** — card data is tokenized directly at CyberSource; it never touches your server
+- **Device Fingerprint (ThreatMetrix)** — fraud scoring via device profiling before payment
 - **Authorization + manual capture** from the Medusa admin dashboard
 - **Auto-capture (sale mode)** for instant settlement
 - **Partial and full refunds**
 - **Zero-amount orders** — 100% discounts and free orders are handled automatically (no gateway call)
+- **Admin widget** — CyberSource transaction details panel injected into order detail view
 
 ## Requirements
 
-- Medusa.js v2 (`@medusajs/medusa >= 2.0.0`)
-- CyberSource Business Center account
-- Node.js 18+
+| | |
+|---|---|
+| **Medusa.js** | v2 (`@medusajs/medusa >= 2.0.0`) |
+| **Node.js** | 18+ |
+| **CyberSource** | Business Center account |
 
 ## Installation
 
@@ -81,36 +85,47 @@ module.exports = defineConfig({
 
 ## Plugin Options
 
-| Option | Type | Required | Default | Description |
-|--------|------|----------|---------|-------------|
-| `merchantID` | `string` | Yes | — | Your CyberSource Merchant ID |
-| `merchantKeyId` | `string` | Yes | — | Shared key ID (HTTP Signature) |
-| `merchantsecretKey` | `string` | Yes | — | Shared secret key (HTTP Signature) |
-| `environment` | `"sandbox" \| "production"` | No | `"sandbox"` | CyberSource API environment |
-| `capture` | `boolean` | No | `false` | Auto-capture on authorization (sale mode) |
-| `allowedCardNetworks` | `string[]` | No | `["VISA","MASTERCARD","AMEX","DISCOVER"]` | Card networks shown in the Flex form |
+| Option | Type | Description |
+|--------|------|-------------|
+| `merchantID` | `string` | **Required.** Your CyberSource Merchant ID |
+| `merchantKeyId` | `string` | **Required.** Shared key ID (HTTP Signature) |
+| `merchantsecretKey` | `string` | **Required.** Shared secret key (HTTP Signature) |
+| `environment` | `string` | `"sandbox"` or `"production"`. Default: `"sandbox"` |
+| `capture` | `boolean` | Auto-capture on authorization (sale mode). Default: `false` |
+| `allowedCardNetworks` | `string[]` | Card networks for Flex. Default: `["VISA","MASTERCARD","AMEX","DISCOVER"]` |
 
 ## Payment Flow
 
 ```
-Storefront                    Backend                          CyberSource
-    |                            |                                 |
-    |-- select payment method -->|                                 |
-    |<-- captureContext JWT ------|-- POST /flex/v2/sessions ------>|
-    |                            |                                 |
-    | [Flex Microform renders card iFrames — SAQ-A]               |
-    |                            |                                 |
-    |-- microform.createToken() ---------------------------------->|
-    |<-- transient_token (JWT, 15 min) ---------------------------|
-    |                            |                                 |
-    |-- POST /store/cybersource/authorize -->|                     |
-    |         { payment_session_id,          |-- POST /pts/v2/payments -->|
-    |           transient_token, bill_to? }  |<-- AUTHORIZED ------------|
-    |<-- { success, cs_payment_id } --------|                     |
-    |                            |                                 |
-    |-- POST /store/carts/:id/complete -->  |                     |
-    |   (placeOrder)             |-- authorizePayment()            |
-    |<-- order created ----------|   reads cs_payment_id           |
+Storefront          Backend            CyberSource
+    |                  |                    |
+    | select method    |                    |
+    |----------------->|                    |
+    |                  |-- /flex/v2/sessions-->|
+    |<-- captureContext JWT ----------------|
+    |                  |                    |
+    | Flex iFrames render (SAQ-A)          |
+    | Fingerprint script loads in bg       |
+    |                  |                    |
+    | microform.createToken()              |
+    |----------------------------------------->|
+    |<-- transient_token (JWT 15 min) ---------|
+    |                  |                    |
+    | POST /store/cybersource/authorize    |
+    |  { payment_session_id,              |
+    |    transient_token,                 |
+    |    fingerprint_session_id }         |
+    |----------------->|                    |
+    |                  |-- /pts/v2/payments-->|
+    |                  |  + deviceInformation |
+    |                  |<-- AUTHORIZED --------|
+    |<-- { cs_payment_id } -------------|
+    |                  |                    |
+    | POST /store/carts/:id/complete   |
+    |----------------->|                    |
+    |                  | authorizePayment() |
+    |                  | reads cs_payment_id|
+    |<-- order created--|                    |
 ```
 
 ## Frontend Integration
@@ -121,30 +136,43 @@ Storefront                    Backend                          CyberSource
 <script src="https://flex.cybersource.com/microform/bundle/v2/flex-microform.min.js"></script>
 ```
 
-### 2. Initialize Flex
+### 2. Load Device Fingerprint Script
+
+When the user selects CyberSource as payment method, generate a unique session ID and load the ThreatMetrix script. The same ID must be sent in the authorize request.
+
+```javascript
+const fingerprintSessionId = crypto.randomUUID()
+
+const script = document.createElement("script")
+script.src = `https://h.online-metrix.net/fp/tags.js?org_id=${ORG_ID}&session_id=${fingerprintSessionId}`
+script.async = true
+document.head.appendChild(script)
+
+// org_id values:
+// Sandbox:    1snn5n9w
+// Production: k8vif92e  (confirm in Business Center → Decision Manager)
+```
+
+### 3. Initialize Flex
 
 ```javascript
 // captureContext comes from payment_session.data.captureContext
 const flex = new Flex(captureContext)
 const microform = flex.microform()
 
-const cardNumber = microform.createField("number", {
-  placeholder: "Card number",
-})
-const cvn = microform.createField("securityCode", {
-  placeholder: "CVV",
-})
+const cardNumber = microform.createField("number", { placeholder: "Card number" })
+const cvn = microform.createField("securityCode", { placeholder: "CVV" })
 
 cardNumber.load("#card-number-container")
 cvn.load("#cvn-container")
 ```
 
-### 3. Tokenize and Pre-authorize
+### 4. Tokenize and Pre-authorize
 
 Call this **before** `placeOrder()`:
 
 ```javascript
-async function authorizePayment(paymentSessionId) {
+async function authorizePayment(paymentSessionId, fingerprintSessionId) {
   // 1. Get transient token from Flex Microform
   const transientToken = await new Promise((resolve, reject) => {
     microform.createToken({ expirationMonth: "12", expirationYear: "2030" }, (err, token) => {
@@ -163,6 +191,7 @@ async function authorizePayment(paymentSessionId) {
     body: JSON.stringify({
       payment_session_id: paymentSessionId,
       transient_token: transientToken,
+      fingerprint_session_id: fingerprintSessionId,  // same UUID used in the script URL
       bill_to: {               // optional but recommended
         firstName: "John",
         lastName: "Doe",
@@ -186,7 +215,10 @@ async function authorizePayment(paymentSessionId) {
 }
 
 // Usage
-await authorizePayment(cart.payment_collection.payment_sessions[0].id)
+await authorizePayment(
+  cart.payment_collection.payment_sessions[0].id,
+  fingerprintSessionId,
+)
 await placeOrder() // Medusa completes the order using the stored cs_payment_id
 ```
 
@@ -194,11 +226,12 @@ await placeOrder() // Medusa completes the order using the stored cs_payment_id
 
 **Request body:**
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `payment_session_id` | `string` | Yes | Medusa payment session ID |
-| `transient_token` | `string` | Yes | JWT from `microform.createToken()` |
-| `bill_to` | `object` | No | Billing address for AVS/fraud checks |
+| Field | Required | Description |
+|-------|----------|-------------|
+| `payment_session_id` | Yes | Medusa payment session ID |
+| `transient_token` | Yes | JWT from `microform.createToken()` |
+| `fingerprint_session_id` | No | Session ID used in the ThreatMetrix script URL |
+| `bill_to` | No | Billing address object for AVS/fraud checks |
 
 **Success response (200):**
 ```json
@@ -210,6 +243,12 @@ await placeOrder() // Medusa completes the order using the stored cs_payment_id
 { "error": "Payment declined", "reason": "INSUFFICIENT_FUND", "cs_status": "DECLINED" }
 ```
 
+## Device Fingerprint
+
+The plugin sends `deviceInformation.fingerprintSessionId` and `useRawFingerprintSessionId: true` to the CyberSource Payments API. The `useRawFingerprintSessionId` flag is required so that CyberSource looks up ThreatMetrix using the raw session ID (your UUID) instead of the default `{merchantId}{sessionId}` composite key — which would cause a mismatch with what the frontend script registered.
+
+You can verify fingerprint collection is working by checking a transaction in CyberSource Business Center. A successful integration shows a hash under **Device Fingerprint ID** instead of "Not Submitted".
+
 ## Capture Modes
 
 ### Manual Capture (default)
@@ -217,6 +256,31 @@ CyberSource authorizes the card on order placement. You capture the funds from t
 
 ### Auto-Capture (sale mode)
 Set `CYBERSOURCE_AUTO_CAPTURE=true`. CyberSource processes authorization and capture together; the payment is marked as captured immediately on order placement.
+
+## Admin Widget
+
+The plugin injects a **CyberSource** panel into the order detail page of the Medusa admin (`order.details.side.after`). It shows:
+
+| Field | Description |
+|-------|-------------|
+| Status badge | Derived display status (see table below) |
+| Transaction ID | CyberSource authorization ID |
+| Capture ID | Only shown if different from Transaction ID (manual capture) |
+| Reconciliation ID | CyberSource reconciliation ID |
+| Card | Card brand + last 4 digits |
+| Last Refund ID | ID of the last refund issued |
+| Last Refund Amount | Amount of the last refund |
+
+**Status badge logic:**
+
+| Condition | Badge |
+|-----------|-------|
+| `cs_last_refund_id` is set | 🔵 REFUNDED |
+| `cs_status = AUTHORIZED` + `cs_capture_id` set (auto-capture) | 🟢 CAPTURED |
+| `cs_status = AUTHORIZED` (no capture ID) | 🟠 AUTHORIZED |
+| `cs_status = CAPTURED` | 🟢 CAPTURED |
+| `cs_status = VOIDED` | ⚫ VOIDED |
+| `cs_status = DECLINED` | 🔴 DECLINED |
 
 ## Admin Refund Route
 
@@ -302,7 +366,7 @@ curl -X POST http://localhost:9000/admin/cybersource/refund \
 
 ```bash
 # Clone
-git clone https://github.com/your-org/medusa-payment-cybersource.git
+git clone https://github.com/Eleven-Estudio/medusa-payment-cybersource.git
 cd medusa-payment-cybersource
 
 # Install dependencies
@@ -311,7 +375,7 @@ npm install
 # Build
 npm run build
 
-# Watch mode
+# Watch mode (backend only)
 npm run dev
 ```
 

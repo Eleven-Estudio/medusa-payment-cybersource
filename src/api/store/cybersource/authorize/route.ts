@@ -5,6 +5,7 @@ import { CybersourceClient } from "../../../../client/cybersource-client"
 type AuthorizeRequestBody = {
   payment_session_id: string
   transient_token: string
+  fingerprint_session_id?: string
   bill_to?: {
     firstName?: string
     lastName?: string
@@ -36,7 +37,7 @@ export const POST = async (
   req: MedusaRequest<AuthorizeRequestBody>,
   res: MedusaResponse
 ) => {
-  const { payment_session_id, transient_token, bill_to } = req.body
+  const { payment_session_id, transient_token, fingerprint_session_id, bill_to } = req.body
 
   if (!payment_session_id) {
     return res
@@ -125,6 +126,7 @@ export const POST = async (
       // Use medusa session id as idempotency key to prevent duplicate charges
       referenceCode: payment_session_id,
       capture: autoCapture,
+      fingerprintSessionId: fingerprint_session_id,
       billTo: bill_to,
     })
 

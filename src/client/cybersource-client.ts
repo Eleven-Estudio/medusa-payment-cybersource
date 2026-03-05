@@ -23,6 +23,7 @@ type AuthorizePaymentParams = {
   currency: string
   referenceCode: string
   capture: boolean
+  fingerprintSessionId?: string
   billTo?: {
     firstName?: string
     lastName?: string
@@ -165,6 +166,17 @@ export class CybersourceClient {
     }
 
     request.orderInformation = orderInfo
+
+    // Device Fingerprint — required for production fraud scoring.
+    // useRawFingerprintSessionId=true tells CyberSource to look up ThreatMetrix
+    // using the raw session ID (our UUID), not merchantId+sessionId (the default).
+    // The script URL on the frontend uses session_id=<uuid>, so both sides must match.
+    if (params.fingerprintSessionId) {
+      const deviceInfo = new CyberSource.Ptsv2paymentsDeviceInformation()
+      deviceInfo.fingerprintSessionId = params.fingerprintSessionId
+      deviceInfo.useRawFingerprintSessionId = true
+      request.deviceInformation = deviceInfo
+    }
 
     return new Promise((resolve, reject) => {
       api.createPayment(
