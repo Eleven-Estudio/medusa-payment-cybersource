@@ -43,6 +43,9 @@ export type CybersourceAuthResponse = {
     | "AUTHORIZED_RISK_DECLINED"
   reconciliationId?: string
   clientReferenceInformation?: { code: string }
+  paymentInformation?: {
+    card?: { suffix?: string; type?: string }
+  }
   paymentAccountInformation?: {
     card?: { suffix?: string; type?: string }
   }

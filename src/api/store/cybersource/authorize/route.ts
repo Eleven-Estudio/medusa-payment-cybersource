@@ -33,6 +33,20 @@ type AuthorizeRequestBody = {
  * 6. Stores cs_payment_id in PaymentSession.data
  * 7. Storefront calls placeOrder() → authorizePayment() reads cs_payment_id
  */
+const CARD_TYPE_NAMES: Record<string, string> = {
+  "001": "Visa",
+  "002": "Mastercard",
+  "003": "American Express",
+  "004": "Discover",
+  "005": "Diners Club",
+  "007": "JCB",
+  "024": "Maestro",
+  "042": "Maestro",
+  "050": "Hipercard",
+  "054": "Elo",
+  "062": "UnionPay",
+}
+
 export const POST = async (
   req: MedusaRequest<AuthorizeRequestBody>,
   res: MedusaResponse
@@ -173,8 +187,14 @@ export const POST = async (
         // intente capturar de nuevo en CyberSource.
         ...(autoCapture && { cs_capture_id: authResult.id }),
         card_last_four:
+          authResult.paymentInformation?.card?.suffix ??
           authResult.paymentAccountInformation?.card?.suffix,
-        card_type: authResult.paymentAccountInformation?.card?.type,
+        card_type: (() => {
+          const code =
+            authResult.paymentInformation?.card?.type ??
+            authResult.paymentAccountInformation?.card?.type
+          return code ? (CARD_TYPE_NAMES[code] ?? code) : undefined
+        })(),
       },
     })
 

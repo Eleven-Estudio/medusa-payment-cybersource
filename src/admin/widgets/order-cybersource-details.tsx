@@ -92,7 +92,9 @@ const OrderCybersourceDetailsWidget = ({
       ? `${data.card_type} •••• ${data.card_last_four}`
       : data.card_last_four
         ? `•••• ${data.card_last_four}`
-        : "—"
+        : data.card_type
+          ? data.card_type
+          : "—"
 
   return (
     <Container className="divide-y p-0">
@@ -114,7 +116,7 @@ const OrderCybersourceDetailsWidget = ({
       {data.cs_reconciliation_id && (
         <Row label="Reconciliation ID" value={data.cs_reconciliation_id} />
       )}
-      {(data.card_type || data.card_last_four) && (
+      {(data.card_type || data.card_last_four) && cardLabel !== "—" && (
         <Row label="Card" value={cardLabel} />
       )}
       {data.cs_last_refund_id && (
